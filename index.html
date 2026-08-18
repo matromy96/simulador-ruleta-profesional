@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ruleta del Canal</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <style>
   /* ======================================================
      ESTRUCTURA MÍNIMA — pensada para que la decores encima.
@@ -233,7 +238,7 @@
   // y solo necesitan pulsar "Conectar con Twitch" con su propia cuenta.
   // El Redirect URI que registres ahí debe coincidir EXACTO con la URL donde
   // alojes esta página (ej. https://tuusuario.github.io/ruleta-twitch/).
-  const CLIENT_ID = 'wss2vywvaui2ohzhodqfhnxdgzgbpm';
+  const CLIENT_ID = 'TU_CLIENT_ID_AQUI';
 
   const REDIRECT_URI = window.location.origin + window.location.pathname;
   const SCOPES = ['moderator:read:followers','channel:read:subscriptions','channel:read:vips','moderator:read:chatters'].join(' ');
