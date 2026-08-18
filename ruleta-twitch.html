@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ruleta del Canal</title>
+<style>
+  /* ======================================================
+     ESTRUCTURA MÍNIMA — pensada para que la decores encima.
+     Cada bloque tiene un id/class claro para que apuntes tus
+     propios estilos o reemplaces elementos por tus assets.
+     ====================================================== */
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    font-family:system-ui, sans-serif;
+    background:#111;
+    color:#eee;
+    display:grid;
+    grid-template-columns:320px 1fr;
+    min-height:100vh;
+  }
+  @media (max-width:900px){ body{ grid-template-columns:1fr; } }
+
+  /* ---------- SIDEBAR ---------- */
+  #sidebar{
+    background:#181818;
+    border-right:1px solid #333;
+    padding:20px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+    overflow-y:auto;
+  }
+  #sidebar h1{ font-size:20px; margin:0; }
+  .block{ border:1px solid #333; border-radius:6px; padding:12px; }
+  .block h2{ font-size:13px; text-transform:uppercase; color:#999; margin:0 0 10px; }
+
+  input[type=text]{
+    width:100%; background:#0d0d0d; border:1px solid #333; border-radius:4px;
+    padding:8px; color:#eee; font-size:13px; margin-bottom:8px;
+  }
+  textarea{
+    width:100%; min-height:60px; background:#0d0d0d; border:1px solid #333;
+    border-radius:4px; color:#eee; font-size:13px; padding:8px; margin-bottom:8px; resize:vertical;
+  }
+  .btn{
+    width:100%; padding:9px; border:1px solid #444; border-radius:4px;
+    background:#242424; color:#eee; font-size:13px; cursor:pointer;
+  }
+  .btn:hover:not(:disabled){ background:#2d2d2d; }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn-primary{ background:#5a3ee0; border-color:#5a3ee0; color:#fff; }
+  .btn-gold{ background:#e0a93e; border-color:#e0a93e; color:#111; }
+
+  .status-line{ font-size:11.5px; color:#999; line-height:1.5; word-break:break-word; }
+  .status-line.err{ color:#e05a5a; }
+  .status-line.ok{ color:#5ae0c0; }
+
+  .who{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .who img{ width:32px; height:32px; border-radius:50%; }
+  .who .name{ font-weight:600; font-size:13px; }
+
+  .cat-row{ display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid #292929; font-size:13px; }
+  .cat-row:last-child{ border-bottom:none; }
+  .cat-row label{ display:flex; align-items:center; gap:8px; cursor:pointer; }
+  .cat-count{ font-size:11px; color:#999; }
+
+  .toggle-row{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:#aaa; padding:4px 0; }
+
+  .pool-count{ font-size:12px; display:flex; justify-content:space-between; margin-top:6px; }
+
+  /* ---------- STAGE ---------- */
+  #stage{
+    display:flex; flex-direction:column; align-items:center;
+    padding:30px 20px 50px; gap:18px;
+  }
+  #stage h2{ margin:0; font-size:20px; }
+
+  #wheel-zone{ position:relative; width:min(480px,90vw); aspect-ratio:1/1; }
+  #pointer{
+    position:absolute; bottom:-4px; left:50%; transform:translateX(-50%);
+    width:0; height:0; border-left:14px solid transparent; border-right:14px solid transparent;
+    border-bottom:24px solid #e0a93e; z-index:5;
+  }
+  #wheel-hub{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:56px; height:56px; border-radius:50%; background:#181818; border:2px solid #e0a93e;
+    z-index:4; display:flex; align-items:center; justify-content:center; font-size:11px; color:#e0a93e;
+  }
+  #wheel-spin-wrap{
+    width:100%; height:100%; border-radius:50%;
+    transition:transform 4.5s cubic-bezier(.2,.65,.2,1);
+    background:#181818; border:1px solid #333;
+  }
+  canvas#wheel{ width:100%; height:100%; border-radius:50%; display:block; }
+
+  #empty-wheel{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    text-align:center; padding:24px; font-size:12px; color:#999;
+  }
+
+  #spin-btn{ width:min(280px,80vw); padding:14px; font-size:16px; border-radius:6px; }
+
+  #legend{ display:flex; flex-wrap:wrap; gap:12px; justify-content:center; font-size:11px; color:#999; }
+  #legend span{ display:inline-flex; align-items:center; gap:5px; }
+  #legend i{ width:8px; height:8px; border-radius:50%; display:inline-block; }
+
+  #winner-card{
+    display:none;
+    width:min(380px,90vw); border:1px solid #e0a93e; border-radius:8px;
+    padding:16px; text-align:center; background:#181818;
+  }
+  #winner-card.show{ display:block; }
+  #winner-card .label{ font-size:11px; color:#e0a93e; text-transform:uppercase; }
+  #winner-card .wname{ font-size:26px; font-weight:700; margin:6px 0; }
+  #winner-card .wcat{ font-size:11px; padding:2px 8px; border-radius:20px; }
+
+  #history{ width:min(480px,90vw); list-style:none; margin:0; padding:0; border-top:1px solid #292929; }
+  #history li{ display:flex; justify-content:space-between; padding:8px 2px; border-bottom:1px solid #292929; font-size:13px; }
+  #history li .h-meta{ font-size:11px; color:#999; }
+  #history-title{ font-size:11px; color:#999; align-self:flex-start; }
+</style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <h1>Ruleta del Canal</h1>
+
+  <div class="block" id="connectBlock">
+    <h2>Conexión con Twitch</h2>
+    <div id="preAuth">
+      <p style="font-size:12.5px; color:#aaa; margin:0 0 10px; line-height:1.5;">Conecta tu cuenta de Twitch para cargar seguidores, suscriptores, VIPs y chat activo de tu canal.</p>
+      <button class="btn btn-primary" id="loginBtn">Conectar con Twitch</button>
+    </div>
+    <div id="postAuth" style="display:none;">
+      <div class="who">
+        <img id="avatarImg" src="" alt="">
+        <div class="name" id="userName">—</div>
+      </div>
+      <button class="btn" id="reloadBtn">Recargar listas</button>
+      <button class="btn" id="logoutBtn" style="margin-top:6px;">Cerrar sesión</button>
+    </div>
+    <div class="status-line" id="statusLine" style="margin-top:8px;">Conecta tu cuenta para empezar.</div>
+  </div>
+
+  <div class="block" id="filtersBlock" style="display:none;">
+    <h2>Fuentes para la ruleta</h2>
+    <div class="cat-row">
+      <label><input type="checkbox" class="src-check" data-cat="followers">Seguidores</label>
+      <span class="cat-count" id="count-followers">–</span>
+    </div>
+    <div class="cat-row">
+      <label><input type="checkbox" class="src-check" data-cat="subs">Suscriptores</label>
+      <span class="cat-count" id="count-subs">–</span>
+    </div>
+    <div class="cat-row">
+      <label><input type="checkbox" class="src-check" data-cat="vips">VIPs</label>
+      <span class="cat-count" id="count-vips">–</span>
+    </div>
+    <div class="cat-row">
+      <label><input type="checkbox" class="src-check" data-cat="chatters">Activos en el chat</label>
+      <span class="cat-count" id="count-chatters">–</span>
+    </div>
+  </div>
+
+  <div class="block" id="manualBlock" style="display:none;">
+    <h2>Entradas manuales</h2>
+    <textarea id="manualText" placeholder="Un nombre por línea"></textarea>
+    <div class="cat-row" style="border:none; padding-top:0;">
+      <label><input type="checkbox" class="src-check" data-cat="manual">Incluir manuales</label>
+      <span class="cat-count" id="count-manual">0</span>
+    </div>
+  </div>
+
+  <div class="block" id="optionsBlock" style="display:none;">
+    <h2>Opciones</h2>
+    <div class="toggle-row"><input type="checkbox" id="excludeWinners"><label for="excludeWinners">No repetir ganadores anteriores</label></div>
+    <div class="toggle-row"><input type="checkbox" id="multiEntry"><label for="multiEntry">Doble entrada si aparece en 2+ categorías</label></div>
+    <div class="pool-count"><span>Participantes en la ruleta</span><strong id="poolTotal">0</strong></div>
+  </div>
+
+  <div class="block" id="soundBlock">
+    <h2>Sonido</h2>
+    <div class="toggle-row" style="gap:10px;">
+      <span id="volIcon">🔊</span>
+      <input type="range" id="volumeSlider" min="0" max="100" value="70" style="flex:1;">
+      <span class="cat-count" id="volumeValue">70%</span>
+    </div>
+    <div class="toggle-row"><input type="checkbox" id="muteToggle"><label for="muteToggle">Silenciar</label></div>
+  </div>
+</aside>
+
+<audio id="sfxSpin" src="RULETA.mp3" preload="auto" loop></audio>
+<audio id="sfxWin" src="WIN.mp3" preload="auto"></audio>
+
+<main id="stage">
+  <h2>Gira y elige a tu ganador</h2>
+
+  <div id="wheel-zone">
+    <div id="pointer"></div>
+    <div id="wheel-hub">SPIN</div>
+    <div id="wheel-spin-wrap">
+      <canvas id="wheel" width="480" height="480"></canvas>
+    </div>
+    <div id="empty-wheel">Conecta tu canal y activa al menos una categoría para llenar la ruleta.</div>
+  </div>
+
+  <button class="btn btn-gold" id="spin-btn" disabled>Girar la ruleta</button>
+
+  <div id="legend">
+    <span><i style="background:#9146FF"></i>Seguidores</span>
+    <span><i style="background:#FFB627"></i>Suscriptores</span>
+    <span><i style="background:#FF5D8F"></i>VIPs</span>
+    <span><i style="background:#2DD4BF"></i>Chat activo</span>
+    <span><i style="background:#8B85A6"></i>Manual</span>
+  </div>
+
+  <div id="winner-card">
+    <div class="label">Ganador</div>
+    <div class="wname" id="winnerName">—</div>
+    <div class="wcat" id="winnerCat">—</div>
+  </div>
+
+  <div id="history-title">Historial de ganadores</div>
+  <ul id="history"></ul>
+</main>
+
+<script>
+(() => {
+  // ⚠️ IMPORTANTE: reemplaza esto por el Client ID de TU app registrada en
+  // https://dev.twitch.tv/console — así todos los streamers usan la misma app
+  // y solo necesitan pulsar "Conectar con Twitch" con su propia cuenta.
+  // El Redirect URI que registres ahí debe coincidir EXACTO con la URL donde
+  // alojes esta página (ej. https://tuusuario.github.io/ruleta-twitch/).
+  const CLIENT_ID = 'wss2vywvaui2ohzhodqfhnxdgzgbpm';
+
+  const REDIRECT_URI = window.location.origin + window.location.pathname;
+  const SCOPES = ['moderator:read:followers','channel:read:subscriptions','channel:read:vips','moderator:read:chatters'].join(' ');
+
+  const CATEGORY_META = {
+    followers:{ label:'Seguidor', color:'#9146FF', colorDim:'#7331D1' },
+    subs:{ label:'Suscriptor', color:'#FFB627', colorDim:'#D99A1E' },
+    vips:{ label:'VIP', color:'#FF5D8F', colorDim:'#DB4A78' },
+    chatters:{ label:'Chat activo', color:'#2DD4BF', colorDim:'#1FAE9C' },
+    manual:{ label:'Manual', color:'#8B85A6', colorDim:'#6E6885' },
+  };
+
+  const els = {
+    loginBtn: document.getElementById('loginBtn'),
+    preAuth: document.getElementById('preAuth'),
+    postAuth: document.getElementById('postAuth'),
+    avatarImg: document.getElementById('avatarImg'),
+    userName: document.getElementById('userName'),
+    statusLine: document.getElementById('statusLine'),
+    reloadBtn: document.getElementById('reloadBtn'),
+    logoutBtn: document.getElementById('logoutBtn'),
+    filtersBlock: document.getElementById('filtersBlock'),
+    manualBlock: document.getElementById('manualBlock'),
+    optionsBlock: document.getElementById('optionsBlock'),
+    manualText: document.getElementById('manualText'),
+    excludeWinners: document.getElementById('excludeWinners'),
+    multiEntry: document.getElementById('multiEntry'),
+    poolTotal: document.getElementById('poolTotal'),
+    spinBtn: document.getElementById('spin-btn'),
+    emptyWheel: document.getElementById('empty-wheel'),
+    wheelSpinWrap: document.getElementById('wheel-spin-wrap'),
+    winnerCard: document.getElementById('winner-card'),
+    winnerName: document.getElementById('winnerName'),
+    winnerCat: document.getElementById('winnerCat'),
+    historyList: document.getElementById('history'),
+    sfxSpin: document.getElementById('sfxSpin'),
+    sfxWin: document.getElementById('sfxWin'),
+    volumeSlider: document.getElementById('volumeSlider'),
+    volumeValue: document.getElementById('volumeValue'),
+    muteToggle: document.getElementById('muteToggle'),
+    volIcon: document.getElementById('volIcon'),
+  };
+
+  let accessToken = sessionStorage.getItem('tw_access_token') || null;
+  let broadcasterId = null;
+  let lists = { followers:[], subs:[], vips:[], chatters:[] };
+  let manualEntries = [];
+  let wonIds = new Set();
+  let currentPool = [];
+  let currentRotation = 0;
+  let spinning = false;
+
+  // ---------- Volumen / sonidos ----------
+  function applyVolume(){
+    const vol = Number(els.volumeSlider.value) / 100;
+    const muted = els.muteToggle.checked;
+    els.sfxSpin.volume = vol;
+    els.sfxWin.volume = vol;
+    els.sfxSpin.muted = muted;
+    els.sfxWin.muted = muted;
+    els.volumeValue.textContent = els.volumeSlider.value + '%';
+    els.volIcon.textContent = muted || vol === 0 ? '🔇' : (vol < 0.5 ? '🔉' : '🔊');
+  }
+
+  const savedVol = localStorage.getItem('tw_volume');
+  const savedMuted = localStorage.getItem('tw_muted');
+  if(savedVol !== null) els.volumeSlider.value = savedVol;
+  if(savedMuted !== null) els.muteToggle.checked = savedMuted === '1';
+  applyVolume();
+
+  els.volumeSlider.addEventListener('input', () => {
+    localStorage.setItem('tw_volume', els.volumeSlider.value);
+    applyVolume();
+  });
+  els.muteToggle.addEventListener('change', () => {
+    localStorage.setItem('tw_muted', els.muteToggle.checked ? '1' : '0');
+    applyVolume();
+  });
+
+  function setStatus(msg, type){
+    els.statusLine.textContent = msg;
+    els.statusLine.className = 'status-line' + (type ? ' ' + type : '');
+  }
+
+  // ---------- OAuth ----------
+  els.loginBtn.addEventListener('click', () => {
+    if(!CLIENT_ID || CLIENT_ID === 'TU_CLIENT_ID_AQUI'){
+      setStatus('Falta configurar el Client ID de la app en el código (CLIENT_ID).', 'err');
+      return;
+    }
+    const url = 'https://id.twitch.tv/oauth2/authorize'
+      + '?client_id=' + encodeURIComponent(CLIENT_ID)
+      + '&redirect_uri=' + encodeURIComponent(REDIRECT_URI)
+      + '&response_type=token'
+      + '&scope=' + encodeURIComponent(SCOPES);
+    window.location.href = url;
+  });
+
+  els.logoutBtn.addEventListener('click', () => {
+    sessionStorage.removeItem('tw_access_token');
+    window.location.reload();
+  });
+
+  els.reloadBtn.addEventListener('click', () => loadAllLists());
+
+  function parseTokenFromHash(){
+    if(window.location.hash.includes('access_token')){
+      const params = new URLSearchParams(window.location.hash.substring(1));
+      const token = params.get('access_token');
+      if(token){
+        accessToken = token;
+        sessionStorage.setItem('tw_access_token', token);
+        history.replaceState(null, '', window.location.pathname);
+      }
+    }
+  }
+
+  // ---------- Helix helpers ----------
+  function clientId(){ return CLIENT_ID; }
+
+  async function helixGet(path, params){
+    const url = new URL('https://api.twitch.tv/helix' + path);
+    Object.entries(params||{}).forEach(([k,v]) => { if(v!==undefined && v!==null) url.searchParams.set(k,v); });
+    const res = await fetch(url, {
+      headers:{ 'Authorization':'Bearer ' + accessToken, 'Client-Id': clientId() }
+    });
+    if(res.status === 401){ throw new Error('AUTH_EXPIRED'); }
+    if(!res.ok){ throw new Error('HTTP_' + res.status); }
+    return res.json();
+  }
+
+  async function helixGetAll(path, baseParams, mapFn){
+    let out = [];
+    let cursor = undefined;
+    do{
+      const data = await helixGet(path, {...baseParams, first:100, after:cursor});
+      out = out.concat((data.data||[]).map(mapFn));
+      cursor = data.pagination && data.pagination.cursor ? data.pagination.cursor : undefined;
+    } while(cursor);
+    return out;
+  }
+
+  async function loadAllLists(){
+    setStatus('Cargando listas del canal…');
+    els.reloadBtn.disabled = true;
+    try{
+      const [followers, subs, vips, chatters] = await Promise.allSettled([
+        helixGetAll('/channels/followers', {broadcaster_id: broadcasterId}, d => ({id:d.user_id, name:d.user_name})),
+        helixGetAll('/subscriptions', {broadcaster_id: broadcasterId}, d => ({id:d.user_id, name:d.user_name})),
+        helixGetAll('/channels/vips', {broadcaster_id: broadcasterId}, d => ({id:d.user_id, name:d.user_name})),
+        helixGetAll('/chat/chatters', {broadcaster_id: broadcasterId, moderator_id: broadcasterId}, d => ({id:d.user_id, name:d.user_name})),
+      ]);
+
+      lists.followers = followers.status === 'fulfilled' ? followers.value : [];
+      lists.subs      = subs.status === 'fulfilled' ? subs.value : [];
+      lists.vips      = vips.status === 'fulfilled' ? vips.value : [];
+      lists.chatters  = chatters.status === 'fulfilled' ? chatters.value : [];
+
+      document.getElementById('count-followers').textContent = lists.followers.length;
+      document.getElementById('count-subs').textContent = lists.subs.length;
+      document.getElementById('count-vips').textContent = lists.vips.length;
+      document.getElementById('count-chatters').textContent = lists.chatters.length;
+
+      const failed = [followers,subs,vips,chatters].some(r => r.status === 'rejected');
+      setStatus(failed ? 'Listas cargadas (alguna categoría no estaba disponible).' : 'Listas cargadas correctamente.', failed ? 'err' : 'ok');
+    } catch(e){
+      if(e.message === 'AUTH_EXPIRED'){
+        setStatus('Tu sesión expiró. Conecta de nuevo.', 'err');
+        sessionStorage.removeItem('tw_access_token');
+        showPreAuth();
+      } else {
+        setStatus('Error cargando listas: ' + e.message, 'err');
+      }
+    } finally {
+      els.reloadBtn.disabled = false;
+      rebuildPool();
+    }
+  }
+
+  async function afterAuth(){
+    try{
+      setStatus('Verificando tu cuenta…');
+      const data = await helixGet('/users', {});
+      const user = data.data[0];
+      broadcasterId = user.id;
+      els.userName.textContent = user.display_name;
+      els.avatarImg.src = user.profile_image_url;
+      showPostAuth();
+      await loadAllLists();
+    } catch(e){
+      setStatus('No se pudo verificar la cuenta: ' + e.message, 'err');
+      showPreAuth();
+    }
+  }
+
+  function showPostAuth(){
+    els.preAuth.style.display = 'none';
+    els.postAuth.style.display = 'block';
+    els.filtersBlock.style.display = 'block';
+    els.manualBlock.style.display = 'block';
+    els.optionsBlock.style.display = 'block';
+  }
+  function showPreAuth(){
+    els.preAuth.style.display = 'block';
+    els.postAuth.style.display = 'none';
+    els.filtersBlock.style.display = 'none';
+    els.manualBlock.style.display = 'none';
+    els.optionsBlock.style.display = 'none';
+  }
+
+  // ---------- Pool building ----------
+  document.querySelectorAll('.src-check').forEach(cb => cb.addEventListener('change', rebuildPool));
+  els.excludeWinners.addEventListener('change', rebuildPool);
+  els.multiEntry.addEventListener('change', rebuildPool);
+  els.manualText.addEventListener('input', () => {
+    manualEntries = els.manualText.value.split('\n').map(s=>s.trim()).filter(Boolean).map((n,i)=>({id:'manual-'+i+'-'+n, name:n}));
+    document.getElementById('count-manual').textContent = manualEntries.length;
+    rebuildPool();
+  });
+
+  function activeCategories(){
+    return Array.from(document.querySelectorAll('.src-check'))
+      .filter(cb => cb.checked)
+      .map(cb => cb.dataset.cat);
+  }
+
+  function rebuildPool(){
+    const cats = activeCategories();
+    let entries = [];
+    cats.forEach(cat => {
+      const source = cat === 'manual' ? manualEntries : lists[cat];
+      (source||[]).forEach(p => entries.push({id:p.id, name:p.name, category:cat}));
+    });
+
+    if(els.excludeWinners.checked){
+      entries = entries.filter(e => !wonIds.has(e.id));
+    }
+    if(!els.multiEntry.checked){
+      const seen = new Map();
+      entries.forEach(e => { if(!seen.has(e.id)) seen.set(e.id, e); });
+      entries = Array.from(seen.values());
+    }
+
+    currentPool = entries;
+    els.poolTotal.textContent = currentPool.length;
+    els.spinBtn.disabled = currentPool.length < 2 || spinning;
+    els.emptyWheel.style.display = currentPool.length ? 'none' : 'flex';
+    drawWheel(currentPool);
+  }
+
+  // ---------- Wheel drawing (dibujo simple, sin efectos) ----------
+  const canvas = document.getElementById('wheel');
+  const ctx = canvas.getContext('2d');
+
+  function drawWheel(pool){
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0,0,W,H);
+    if(!pool.length) return;
+    const cx = W/2, cy = H/2, r = W/2 - 4;
+    const n = pool.length;
+    const segAngle = (2*Math.PI)/n;
+    const showLabels = n <= 28;
+
+    pool.forEach((p, i) => {
+      const meta = CATEGORY_META[p.category] || CATEGORY_META.manual;
+      const start = -Math.PI/2 + i*segAngle;
+      const end = start + segAngle;
+      ctx.beginPath();
+      ctx.moveTo(cx,cy);
+      ctx.arc(cx,cy,r,start,end);
+      ctx.closePath();
+      ctx.fillStyle = i % 2 === 0 ? meta.color : meta.colorDim;
+      ctx.fill();
+      ctx.strokeStyle = '#111';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      if(showLabels){
+        ctx.save();
+        ctx.translate(cx,cy);
+        ctx.rotate(start + segAngle/2);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#111';
+        ctx.font = '600 12px system-ui, sans-serif';
+        const label = p.name.length > 14 ? p.name.slice(0,13)+'…' : p.name;
+        ctx.fillText(label, r - 14, 4);
+        ctx.restore();
+      }
+    });
+  }
+
+  // ---------- Spin logic ----------
+  els.spinBtn.addEventListener('click', () => {
+    if(spinning || currentPool.length < 2) return;
+    spinning = true;
+    els.spinBtn.disabled = true;
+    els.winnerCard.classList.remove('show');
+
+    els.sfxWin.pause();
+    els.sfxWin.currentTime = 0;
+    els.sfxSpin.currentTime = 0;
+    els.sfxSpin.play().catch(()=>{});
+
+    const n = currentPool.length;
+    const winnerIndex = Math.floor(Math.random()*n);
+    const winner = currentPool[winnerIndex];
+    const segAngleDeg = 360/n;
+    const segCenterDeg = -90 + winnerIndex*segAngleDeg + segAngleDeg/2;
+    const jitter = (Math.random()-0.5) * segAngleDeg * 0.6;
+    const targetDeg = segCenterDeg + jitter;
+
+    const currentMod = ((currentRotation % 360) + 360) % 360;
+    let desiredMod = ((90 - targetDeg) % 360 + 360) % 360; // 90° = abajo, donde ahora está el puntero
+    let diff = ((desiredMod - currentMod) % 360 + 360) % 360;
+    const extraSpins = 5 + Math.floor(Math.random()*2);
+    currentRotation = currentRotation + diff + 360*extraSpins;
+
+    els.wheelSpinWrap.style.transform = 'rotate(' + currentRotation + 'deg)';
+
+    setTimeout(() => {
+      spinning = false;
+
+      els.sfxSpin.pause();
+      els.sfxSpin.currentTime = 0;
+      els.sfxWin.currentTime = 0;
+      els.sfxWin.play().catch(()=>{});
+
+      wonIds.add(winner.id);
+      const meta = CATEGORY_META[winner.category] || CATEGORY_META.manual;
+      els.winnerName.textContent = winner.name;
+      els.winnerCat.textContent = meta.label;
+      els.winnerCat.style.background = meta.color + '33';
+      els.winnerCat.style.color = meta.color;
+      els.winnerCard.classList.add('show');
+
+      const li = document.createElement('li');
+      li.innerHTML = '<span>'+winner.name+'</span><span class="h-meta">'+meta.label+' · '+new Date().toLocaleTimeString()+'</span>';
+      els.historyList.prepend(li);
+
+      rebuildPool();
+    }, 4500);
+  });
+
+  // ---------- Boot ----------
+  parseTokenFromHash();
+  if(accessToken){
+    showPostAuth();
+    afterAuth();
+  } else {
+    setStatus('Conecta tu cuenta para empezar.');
+  }
+})();
+</script>
+</body>
+</html>
